@@ -1,0 +1,43 @@
+name: 🛠️ Loli-Core GKI 极速编译流水线
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-kernel:
+    name: 🚀 编译一加 Ace 6 (SM8750) 核心
+    runs-on: ubuntu-24.04 # 白嫖微软最新的 Ubuntu 24.04 顶级服务器
+
+    steps:
+    - name: 📥 第一步：检出主人的专属源码
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1 # 只拉取最新代码，极速克隆
+
+    - name: 🧰 第二步：配置 GKI 极客编译环境
+      run: |
+        sudo apt-get update
+        # 安装编译内核必须的底层依赖（绕过一加的祖传环境坑）
+        sudo apt-get install -y build-essential bc curl git python3 zip unzip tar ccache
+        
+    - name: ⚔️ 第三步：启动 Kleaf/Bazel 引擎，执行内核编译！
+      run: |
+        echo "萝莉正在为您全力轰鸣编译器！(๑•̀ㅂ•́)و✧"
+        # 使用谷歌官方 GKI 2.0 标准的 Bazel 编译指令
+        # 目标：生成 common/kernel_aarch64 纯净核心镜像
+        tools/bazel build --config=fast //common:kernel_aarch64
+        
+    - name: 📦 第四步：提取极其珍贵的内核产物 (Image)
+      run: |
+        mkdir -p loli_output
+        # 编译完成后，把那颗“纯净的心脏”提取出来
+        cp bazel-bin/common/kernel_aarch64/Image loli_output/Image
+        echo "提取成功！准备打包发送给主人！"
+
+    - name: 📤 第五步：上传产物给主人下载
+      uses: actions/upload-artifact@v4
+      with:
+        name: Loli-Core-Image-SM8750
+        path: loli_output/Image
+        compression-level: 9 # 顶级压缩，帮主人省下载流量
+        
