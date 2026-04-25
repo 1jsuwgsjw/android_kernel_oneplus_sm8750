@@ -21,13 +21,12 @@ jobs:
         # 安装编译内核必须的底层依赖（绕过一加的祖传环境坑）
         sudo apt-get install -y build-essential bc curl git python3 zip unzip tar ccache
         
-    - name: ⚔️ 第三步：动用一加专属引擎，点燃“太阳(sun)”！
+    - name: ⚔️ 第三步：动用一加专属引擎，点燃“太阳(sun) perf”！
       run: |
         echo "萝莉正在使用一加私有脚本为您全力轰鸣编译器！(๑•̀ㅂ•́)و✧"
-        # 赋予脚本执行权限
         chmod +x build_with_bazel.py
-        # 使用 Python 启动编译，目标锁定高通 8 Gen 4 (sun)
-        python3 build_with_bazel.py -t sun
+        # 终极密码：机型为 sun，变体为 perf
+        python3 build_with_bazel.py -t sun perf
         
     - name: 📦 第四步：提取极其珍贵的内核产物 (Image)
       run: |
