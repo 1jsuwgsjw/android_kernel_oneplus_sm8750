@@ -67,18 +67,25 @@ jobs:
         cd ~/workspace
         ./kernel_platform/oplus/build/oplus_build_kernel.sh sun perf
         
-    - name: 📦 第四步：暴力提取心脏与模块
+    - name: 🗂️ 第四步：收集编译产物 (打扫战场)
       run: |
+        echo "创建输出目录..."
         mkdir -p ~/loli_output
-        # Bazel 构建产物通常在 out/ 或 bazel-bin/ 下，建议多提一些关键产物
-        find ~/workspace/android_kernel_oneplus_sm8750 -name "Image" -type f -exec cp {} ~/loli_output/ \;
-        find ~/workspace/android_kernel_oneplus_sm8750 -name "*.ko" -type f -exec cp {} ~/loli_output/ \;
-        # 如果有打包好的完整镜像
-        find ~/workspace/android_kernel_oneplus_sm8750 -name "boot.img" -type f -exec cp {} ~/loli_output/ \;
-        echo "大局已定！提取成功！"
+        
+        echo "开启全图雷达，智能扫描编译好的内核文件..."
+        cd ~/workspace
+        
+        # 智能搜索所有 out 目录下的核心镜像文件，并直接提取到 loli_output 中
+        # 注意：限定路径包含 "out" 是为了防止把源码里自带的旧文件复制过来
+        find . -path "*/out/*" -type f \( -name "Image" -o -name "boot.img" -o -name "vendor_boot.img" -o -name "dtbo.img" -o -name "dtb" \) -exec cp -v {} ~/loli_output/ \;
+        
+        echo "==========================================="
+        echo "🎉 产物收集完毕！看看我们的战利品："
+        ls -lh ~/loli_output/
+        echo "==========================================="
 
-    - name: 📤 第五步：将编译成果上传
+    - name: 🚀 第五步：上传内核产物
       uses: actions/upload-artifact@v4
       with:
-        name: Loli-Core-Kernel-SM8750
+        name: OnePlus-13-Kernel-SM8750
         path: ~/loli_output/*
