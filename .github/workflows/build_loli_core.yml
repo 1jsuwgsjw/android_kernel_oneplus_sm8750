@@ -40,13 +40,16 @@ jobs:
         cd ~/workspace
         
         echo "开始同步源码..."
-        repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b oneplus/sm8750 --depth=1
+        # ⚠️ 注意下面这一行，加入了 -m oneplus_13.xml 解决找不到 default.xml 的问题
+        repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b oneplus/sm8750 -m oneplus_13.xml --depth=1
+        
+        # 接下来开始拉取（这一步耗时最长，大概需要十几分钟到半小时）
         repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
         
         echo "代码拉取完毕，执行磁盘保命大法！"
-        # 这一步是神仙操作：删掉占空间的 .repo 隐藏记录，瞬间释放 30GB+ 给后续编译使用！
-        rm -rf .repo/ 
-
+        # 删掉隐藏的 Git 历史文件，给后面的 Bazel 编译腾出 30GB+ 的空间
+        rm -rf .repo/
+        
     - name: 🔨 第三步：注入防爆配置并开始编译内核
       run: |
         cd ~/workspace
