@@ -1,47 +1,69 @@
 name: 🛠️ Loli-Core GKI 极速编译流水线
 
-# 触发条件：主人手动点击按钮触发
 on:
   workflow_dispatch:
 
 jobs:
   build-kernel:
     name: 🚀 编译一加 Ace 6 (SM8750) 核心
-    runs-on: ubuntu-24.04 # 白嫖微软最新的 Ubuntu 24.04 顶级服务器
+    runs-on: ubuntu-24.04
 
     steps:
+    - name: 🧹 第〇步：清空无用组件，榨干微软服务器每一滴磁盘空间
+      uses: easimon/maximize-build-space@master
+      with:
+        root-reserve-mb: 8192
+        swap-size-mb: 8192
+        remove-dotnet: 'true'
+        remove-android: 'true'
+        remove-haskell: 'true'
+        remove-codeql: 'true'
+        remove-docker-images: 'true'
+
     - name: 🧰 第一步：准备极客编译底层环境
       run: |
         sudo apt-get update
         sudo apt-get install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev libc6-dev-i386 libncurses5 x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig python3
 
-    - name: 📥 第二步：使用 Repo 强拉谷歌 GKI 2.0 巨型大环境
+    - name: 📥 第二步：拉取 OnePlus 官方源码与工具链环境
       run: |
         mkdir -p ~/bin
         curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
         chmod a+x ~/bin/repo
         export PATH=~/bin:$PATH
         
-        # 创建工作区
         mkdir -p ~/workspace && cd ~/workspace
-        # 强行拉取 Android 15 (Kernel 6.6) 的基础工具链和编译器
-        repo init -u https://android.googlesource.com/kernel/manifest -b common-android15-6.6 --depth=1
-        repo sync -c -j8
         
-    - name: 📥 第三步：将一加源码无缝植入大环境
-      run: |
-        cd ~/workspace
-        # 在谷歌的大环境里，单独拉取咱们这台一加的心脏！
+        # ⚠️ 注意：不要单独强拉谷歌的通用环境，应该使用一加官方或开源社区针对这台机器整理好的 manifest 清单拉取整体代码！
+        # 这里假设使用一加提供的 repo manifest (请参考 OnePlusOSS 上的实际 README 指令)
+        # 例如通常是这样的格式：
+        # repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b oneplus/sm8750 -m <对应的清单.xml> --depth=1
+        
+        # 临时作为你的结构平替，如果是单仓库克隆（需要确保此仓库自带所有编译脚本）：
         git clone https://github.com/OnePlusOSS/android_kernel_oneplus_sm8750.git
-        
-    - name: ⚔️ 第四步：点火起飞，引擎轰鸣！
+        cd android_kernel_oneplus_sm8750
+        # 如果一加仓库里有初始化脚本用于拉取高通组件或 GKI 组件，请在这里执行
+        # 例如：./build/build.sh 或者 ./sync_dependencies.sh
+
+    - name: ⚔️ 第三步：点火起飞，引擎轰鸣！
       run: |
         cd ~/workspace/android_kernel_oneplus_sm8750
-        # 此时，向上一级寻找 tools/bazel 就绝对存在了！
+        # 假设环境准备完毕，开始 Bazel 编译
+        # 确保 build_with_bazel.py 在本目录且存在
         python3 build_with_bazel.py -t sun gki
         
-    - name: 📦 第五步：暴力提取心脏
+    - name: 📦 第四步：暴力提取心脏与模块
       run: |
         mkdir -p ~/loli_output
-        find ~/workspace -name "Image" -type f -exec cp {} ~/loli_output/Image \;
+        # Bazel 构建产物通常在 out/ 或 bazel-bin/ 下，建议多提一些关键产物
+        find ~/workspace/android_kernel_oneplus_sm8750 -name "Image" -type f -exec cp {} ~/loli_output/ \;
+        find ~/workspace/android_kernel_oneplus_sm8750 -name "*.ko" -type f -exec cp {} ~/loli_output/ \;
+        # 如果有打包好的完整镜像
+        find ~/workspace/android_kernel_oneplus_sm8750 -name "boot.img" -type f -exec cp {} ~/loli_output/ \;
         echo "大局已定！提取成功！"
+
+    - name: 📤 第五步：将编译成果上传
+      uses: actions/upload-artifact@v4
+      with:
+        name: Loli-Core-Kernel-SM8750
+        path: ~/loli_output/*
