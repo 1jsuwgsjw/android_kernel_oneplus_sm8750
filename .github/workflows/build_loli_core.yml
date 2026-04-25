@@ -83,20 +83,29 @@ jobs:
         # sun 是 SM8750 平台的统取代号，配合 ace 6 的专属清单，它会自动编译出属于你的核心
         ./kernel_platform/oplus/build/oplus_build_kernel.sh sun perf
         
-    - name: 🗂️ 第四步：收集编译产物 (打扫战场)
+    - name: 🗂️ 第四步：收集编译产物 (精确提取)
       run: |
         echo "创建输出目录..."
-        mkdir -p ~/loli_output
+        mkdir -p ~/loli_output/4k_standard
+        mkdir -p ~/loli_output/16k_performance
         
-        echo "开启全图雷达，智能扫描编译好的内核文件..."
-        cd ~/workspace
+        cd ~/workspace/kernel_platform/out/msm-kernel-sun-perf/
         
-        # 智能搜索所有 out 目录下的核心镜像文件，并直接提取到 loli_output 中
-        find . -path "*/out/*" -type f \( -name "Image" -o -name "boot.img" -o -name "vendor_boot.img" -o -name "dtbo.img" -o -name "dtb" \) -exec cp -v {} ~/loli_output/ \;
+        echo "提取 4K 标准版内核产物..."
+        cp -v dist/Image ~/loli_output/4k_standard/ || true
+        cp -v dist/boot.img ~/loli_output/4k_standard/ || true
+        cp -v dist/vendor_boot.img ~/loli_output/4k_standard/ || true
+        cp -v dist/dtbo.img ~/loli_output/4k_standard/ || true
+        
+        echo "提取 16K 极客版内核产物..."
+        cp -v dist16k/Image ~/loli_output/16k_performance/ || true
+        cp -v dist16k/boot.img ~/loli_output/16k_performance/ || true
+        cp -v dist16k/vendor_boot.img ~/loli_output/16k_performance/ || true
+        cp -v dist16k/dtbo.img ~/loli_output/16k_performance/ || true
         
         echo "==========================================="
-        echo "🎉 产物收集完毕！看看我们的战利品："
-        ls -lh ~/loli_output/
+        echo "🎉 精确收集完毕！战利品分类如下："
+        ls -lhR ~/loli_output/
         echo "==========================================="
 
     - name: 🚀 第五步：上传内核产物
