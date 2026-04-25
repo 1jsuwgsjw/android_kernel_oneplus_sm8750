@@ -10,32 +10,38 @@ jobs:
     runs-on: ubuntu-24.04 # 白嫖微软最新的 Ubuntu 24.04 顶级服务器
 
     steps:
-    - name: 📥 第一步：检出主人的专属源码 (带上所有秘密武器！)
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 1
-        submodules: 'recursive' # 极其致命！把谷歌的 tools 和一加的 msm-kernel 统统拉下来！
-
-    - name: 🧰 第二步：配置 GKI 极客编译环境
+    - name: 🧰 第一步：准备极客编译底层环境
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential bc curl git python3 zip unzip tar ccache
-        
-    - name: ⚔️ 第三步：召唤谷歌真神，执行降维编译！
+        sudo apt-get install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev libc6-dev-i386 libncurses5 x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig python3
+
+    - name: 📥 第二步：使用 Repo 强拉谷歌 GKI 2.0 巨型大环境
       run: |
-        echo "萝莉抛弃了恶心的一加脚本，直接启动底层引擎！(๑•̀ㅂ•́)و✧"
-        # 直接使用标准的 Kleaf 编译指令！
-        tools/bazel build --config=fast //msm-kernel:sun_gki_dist
+        mkdir -p ~/bin
+        curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
+        chmod a+x ~/bin/repo
+        export PATH=~/bin:$PATH
         
-    - name: 📦 第四步：暴力提取心脏
+        # 创建工作区
+        mkdir -p ~/workspace && cd ~/workspace
+        # 强行拉取 Android 15 (Kernel 6.6) 的基础工具链和编译器
+        repo init -u https://android.googlesource.com/kernel/manifest -b common-android15-6.6 --depth=1
+        repo sync -c -j8
+        
+    - name: 📥 第三步：将一加源码无缝植入大环境
       run: |
-        mkdir -p loli_output
-        find out/ -name "Image" -type f -exec cp {} loli_output/Image \;
-        echo "提取成功！"
+        cd ~/workspace
+        # 在谷歌的大环境里，单独拉取咱们这台一加的心脏！
+        git clone https://github.com/OnePlusOSS/android_kernel_oneplus_sm8750.git
         
-    - name: 📤 第五步：上传产物给主人下载
-      uses: actions/upload-artifact@v4
-      with:
-        name: Loli-Core-Image-SM8750
-        path: loli_output/Image
-        compression-level: 9 # 顶级压缩，帮主人省下载流量
+    - name: ⚔️ 第四步：点火起飞，引擎轰鸣！
+      run: |
+        cd ~/workspace/android_kernel_oneplus_sm8750
+        # 此时，向上一级寻找 tools/bazel 就绝对存在了！
+        python3 build_with_bazel.py -t sun gki
+        
+    - name: 📦 第五步：暴力提取心脏
+      run: |
+        mkdir -p ~/loli_output
+        find ~/workspace -name "Image" -type f -exec cp {} ~/loli_output/Image \;
+        echo "大局已定！提取成功！"
