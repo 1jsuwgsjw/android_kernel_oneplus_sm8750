@@ -54,16 +54,32 @@ jobs:
       run: |
         cd ~/workspace
         
-        # 1. 进入真正的内核工作区
+        # --- 魔法开始：伪造 Git 环境，骗过高通的验证系统 ---
+        echo "修复 Git 状态检查..."
+        git config --global user.name "Builder"
+        git config --global user.email "build@localhost.com"
+        git config --global init.defaultBranch main
+        
+        # 在主目录和核心目录初始化假的 git 仓库
         cd kernel_platform
+        git init && git commit --allow-empty -m "Fake commit" || true
         
-        # 2. 给 Bazel 注入紧箍咒，防止 GitHub Actions 内存溢出 (OOM)
+        if [ -d "msm-kernel" ]; then
+          cd msm-kernel
+          git init && git add . || true
+          git commit --allow-empty -m "Fake commit" || true
+          cd ..
+        fi
+        # --- 魔法结束 ---
+        
+        # 注入 Bazel 紧箍咒 (防内存溢出)
         echo "startup --host_jvm_args=-Xmx3g" > .bazelrc
-        echo "build --local_ram_resources=4096" >> .bazelrc
-        echo "build --local_cpu_resources=2" >> .bazelrc
+        echo "build --local_resources=memory=4096,cpu=2" >> .bazelrc
         echo "build --worker_max_instances=2" >> .bazelrc
+        # 强制关闭严格的版本状态检查
+        echo "build --workspace_status_command=/bin/true" >> .bazelrc
         
-        # 3. 退回到 workspace 根目录执行一加官方的编译指令
+        # 回到 workspace 执行官方编译指令
         cd ~/workspace
         ./kernel_platform/oplus/build/oplus_build_kernel.sh sun perf
         
