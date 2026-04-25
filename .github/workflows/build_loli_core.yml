@@ -46,7 +46,7 @@ jobs:
         echo "🧹 代码拉取完毕，执行磁盘保命大法（清理 .repo 目录）！"
         rm -rf .repo/
         
-    - name: 🔨 第三步：注入防爆配置并开始编译内核
+    - name: 🔨 第三步：注入防爆配置并开始双轨编译
       run: |
         cd ~/workspace
         
@@ -75,10 +75,14 @@ jobs:
         echo "build --worker_max_instances=2" >> .bazelrc
         echo "build --workspace_status_command=/bin/true" >> .bazelrc
         
-        echo "🔥 再次点火！开始真正的内核编译！"
+        echo "🔥 点火！开始 4K 标准版内核编译！"
         ./kernel_platform/oplus/build/oplus_build_kernel.sh sun perf
         
-    - name: 🗂️ 第四步：收集编译产物 (【核心修改】：提取全套驱动防掉风驰)
+        echo "🔥 再次点火！追加 16K 极客版内核编译！"
+        # 【逻辑修复】：加上 16k 参数生成 dist16k 目录
+        ./kernel_platform/oplus/build/oplus_build_kernel.sh sun perf 16k
+        
+    - name: 🗂️ 第四步：收集编译产物 (提取全套驱动防掉风驰)
       run: |
         echo "创建输出目录..."
         mkdir -p ~/loli_output/4k_standard
@@ -91,7 +95,6 @@ jobs:
         cp -v dist/boot.img ~/loli_output/4k_standard/ || true
         cp -v dist/vendor_boot.img ~/loli_output/4k_standard/ || true
         cp -v dist/dtbo.img ~/loli_output/4k_standard/ || true
-        # 【新增】抓取动态加载模块分区镜像（这是防掉驱动、保住风驰的关键）
         cp -v dist/vendor_dlkm.img ~/loli_output/4k_standard/ || true
         cp -v dist/system_dlkm.img ~/loli_output/4k_standard/ || true
         cp -v dist/*.ko ~/loli_output/4k_standard/ || true
@@ -101,7 +104,6 @@ jobs:
         cp -v dist16k/boot.img ~/loli_output/16k_performance/ || true
         cp -v dist16k/vendor_boot.img ~/loli_output/16k_performance/ || true
         cp -v dist16k/dtbo.img ~/loli_output/16k_performance/ || true
-        # 【新增】抓取 16K 环境下的驱动镜像
         cp -v dist16k/vendor_dlkm.img ~/loli_output/16k_performance/ || true
         cp -v dist16k/system_dlkm.img ~/loli_output/16k_performance/ || true
         cp -v dist16k/*.ko ~/loli_output/16k_performance/ || true
@@ -116,3 +118,4 @@ jobs:
       with:
         name: OnePlus-Ace-6-Kernel-SM8750-Fullset
         path: ~/loli_output/*
+        compression-level: 9
