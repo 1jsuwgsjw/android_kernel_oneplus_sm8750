@@ -20,13 +20,12 @@ jobs:
         docker-images: true
         swap-storage: true
 
-    - name: 🧰 第一步：准备极客编译底层环境 (补全 Python)
+    - name: 🧰 第一步：准备极客编译底层环境
       run: |
         sudo apt-get update
-        # 注意最后加了 python-is-python3
         sudo apt-get install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev libc6-dev-i386 libncurses6 libncurses-dev x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig python3 python-is-python3
 
-    - name: 📦 第二步：拉取 SM8750 完整源码 (并极限压榨空间)
+    - name: 📦 第二步：拉取 Ace 6 原生源码 (并极限压榨空间)
       run: |
         mkdir -p ~/bin
         curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
@@ -39,14 +38,14 @@ jobs:
         mkdir -p ~/workspace
         cd ~/workspace
         
-        echo "开始同步源码..."
-        # ⚠️ 注意下面这一行，加入了 -m oneplus_13.xml 解决找不到 default.xml 的问题
-        repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b oneplus/sm8750 -m oneplus_13.xml --depth=1
+        echo "🔥 开始初始化一加 Ace 6 的官方原生编译清单..."
+        # 【核心修改点】：直接使用原生的 oneplus_ace_6.xml
+        repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b oneplus/sm8750 -m oneplus_ace_6.xml --depth=1
         
-        # 接下来开始拉取（这一步耗时最长，大概需要十几分钟到半小时）
+        echo "🚀 开始全速拉取 Ace 6 原生代码（这步耗时较长，大概十几分钟）..."
         repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
         
-        echo "代码拉取完毕，执行磁盘保命大法！"
+        echo "🧹 代码拉取完毕，执行磁盘保命大法（清理 .repo 目录）！"
         # 删掉隐藏的 Git 历史文件，给后面的 Bazel 编译腾出 30GB+ 的空间
         rm -rf .repo/
         
@@ -73,14 +72,15 @@ jobs:
           fi
         done
         
-        echo "注入 Bazel 紧箍咒 (防内存溢出)..."
+        echo "🛡️ 注入 Bazel 紧箍咒 (防内存溢出)..."
         cd ~/workspace
         echo "startup --host_jvm_args=-Xmx3g" > .bazelrc
         echo "build --local_resources=memory=4096,cpu=2" >> .bazelrc
         echo "build --worker_max_instances=2" >> .bazelrc
         echo "build --workspace_status_command=/bin/true" >> .bazelrc
         
-        echo "再次点火！开始真正的内核编译！"
+        echo "🔥 再次点火！开始真正的内核编译！"
+        # sun 是 SM8750 平台的统取代号，配合 ace 6 的专属清单，它会自动编译出属于你的核心
         ./kernel_platform/oplus/build/oplus_build_kernel.sh sun perf
         
     - name: 🗂️ 第四步：收集编译产物 (打扫战场)
@@ -92,7 +92,6 @@ jobs:
         cd ~/workspace
         
         # 智能搜索所有 out 目录下的核心镜像文件，并直接提取到 loli_output 中
-        # 注意：限定路径包含 "out" 是为了防止把源码里自带的旧文件复制过来
         find . -path "*/out/*" -type f \( -name "Image" -o -name "boot.img" -o -name "vendor_boot.img" -o -name "dtbo.img" -o -name "dtb" \) -exec cp -v {} ~/loli_output/ \;
         
         echo "==========================================="
@@ -103,5 +102,6 @@ jobs:
     - name: 🚀 第五步：上传内核产物
       uses: actions/upload-artifact@v4
       with:
-        name: OnePlus-13-Kernel-SM8750
+        # 【修改点】：将导出的压缩包命名为 Ace 6
+        name: OnePlus-Ace-6-Kernel-SM8750
         path: ~/loli_output/*
