@@ -1,4 +1,4 @@
-name: 🛠️ Loli-Core GKI 极速编译流水线
+name: 🛠️ Loli-Core GKI 极速编译流水线 (全套不掉驱动版)
 
 on:
   workflow_dispatch:
@@ -11,7 +11,6 @@ jobs:
     - name: 🧹 第〇步：简单粗暴清理空间 (不搞虚拟磁盘)
       uses: jlumbroso/free-disk-space@main
       with:
-        # 开启清理选项，保留足够空间
         tool-cache: true
         android: true
         dotnet: true
@@ -39,14 +38,12 @@ jobs:
         cd ~/workspace
         
         echo "🔥 开始初始化一加 Ace 6 的官方原生编译清单..."
-        # 【核心修改点】：直接使用原生的 oneplus_ace_6.xml
         repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b oneplus/sm8750 -m oneplus_ace_6.xml --depth=1
         
         echo "🚀 开始全速拉取 Ace 6 原生代码（这步耗时较长，大概十几分钟）..."
         repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
         
         echo "🧹 代码拉取完毕，执行磁盘保命大法（清理 .repo 目录）！"
-        # 删掉隐藏的 Git 历史文件，给后面的 Bazel 编译腾出 30GB+ 的空间
         rm -rf .repo/
         
     - name: 🔨 第三步：注入防爆配置并开始编译内核
@@ -61,7 +58,6 @@ jobs:
         git config --global user.email "build@localhost.com"
         git config --global init.defaultBranch main
         
-        # 针对这三个最喜欢用 git 的核心目录，建立真实的本地跟踪
         for dir in kernel_platform kernel_platform/common kernel_platform/msm-kernel; do
           if [ -d "$dir" ]; then
             echo "正在修复 $dir 的 Git 状态..."
@@ -80,10 +76,9 @@ jobs:
         echo "build --workspace_status_command=/bin/true" >> .bazelrc
         
         echo "🔥 再次点火！开始真正的内核编译！"
-        # sun 是 SM8750 平台的统取代号，配合 ace 6 的专属清单，它会自动编译出属于你的核心
         ./kernel_platform/oplus/build/oplus_build_kernel.sh sun perf
         
-    - name: 🗂️ 第四步：收集编译产物 (精确提取)
+    - name: 🗂️ 第四步：收集编译产物 (【核心修改】：提取全套驱动防掉风驰)
       run: |
         echo "创建输出目录..."
         mkdir -p ~/loli_output/4k_standard
@@ -91,26 +86,33 @@ jobs:
         
         cd ~/workspace/kernel_platform/out/msm-kernel-sun-perf/
         
-        echo "提取 4K 标准版内核产物..."
+        echo "提取 4K 标准版内核及同宗同源的 DLKM 驱动镜像..."
         cp -v dist/Image ~/loli_output/4k_standard/ || true
         cp -v dist/boot.img ~/loli_output/4k_standard/ || true
         cp -v dist/vendor_boot.img ~/loli_output/4k_standard/ || true
         cp -v dist/dtbo.img ~/loli_output/4k_standard/ || true
+        # 【新增】抓取动态加载模块分区镜像（这是防掉驱动、保住风驰的关键）
+        cp -v dist/vendor_dlkm.img ~/loli_output/4k_standard/ || true
+        cp -v dist/system_dlkm.img ~/loli_output/4k_standard/ || true
+        cp -v dist/*.ko ~/loli_output/4k_standard/ || true
         
-        echo "提取 16K 极客版内核产物..."
+        echo "提取 16K 极客版内核及同宗同源的 DLKM 驱动镜像..."
         cp -v dist16k/Image ~/loli_output/16k_performance/ || true
         cp -v dist16k/boot.img ~/loli_output/16k_performance/ || true
         cp -v dist16k/vendor_boot.img ~/loli_output/16k_performance/ || true
         cp -v dist16k/dtbo.img ~/loli_output/16k_performance/ || true
+        # 【新增】抓取 16K 环境下的驱动镜像
+        cp -v dist16k/vendor_dlkm.img ~/loli_output/16k_performance/ || true
+        cp -v dist16k/system_dlkm.img ~/loli_output/16k_performance/ || true
+        cp -v dist16k/*.ko ~/loli_output/16k_performance/ || true
         
         echo "==========================================="
-        echo "🎉 精确收集完毕！战利品分类如下："
+        echo "🎉 精确收集完毕！不仅有 boot，还有全套配对的 dlkm 驱动："
         ls -lhR ~/loli_output/
         echo "==========================================="
 
-    - name: 🚀 第五步：上传内核产物
+    - name: 🚀 第五步：上传内核全套产物
       uses: actions/upload-artifact@v4
       with:
-        # 【修改点】：将导出的压缩包命名为 Ace 6
-        name: OnePlus-Ace-6-Kernel-SM8750
+        name: OnePlus-Ace-6-Kernel-SM8750-Fullset
         path: ~/loli_output/*
