@@ -21,12 +21,16 @@ jobs:
         # 安装编译内核必须的底层依赖（绕过一加的祖传环境坑）
         sudo apt-get install -y build-essential bc curl git python3 zip unzip tar ccache
         
-    - name: ⚔️ 第三步：启动 Kleaf/Bazel 引擎，执行内核编译！
+    - name: ⚔️ 第三步：全盘侦察，寻找一加的隐藏开关！
       run: |
-        echo "萝莉正在为您全力轰鸣编译器！(๑•̀ㅂ•́)و✧"
-        # 使用谷歌官方 GKI 2.0 标准的 Bazel 编译指令
-        # 目标：生成 common/kernel_aarch64 纯净核心镜像
-        tools/bazel build --config=fast //common:kernel_aarch64
+        echo "萝莉正在扫描一加的真实目录结构..."
+        # 1. 看看根目录下到底有哪些文件和文件夹
+        ls -la
+        echo "-----------------------------------"
+        # 2. 暴力搜索所有带 'bazel' 或 'build' 的脚本文件！
+        find . -name "*bazel*" -type f
+        find . -name "build*.sh" -type f
+        echo "侦察完毕！请主人查看这段日志！"
         
     - name: 📦 第四步：提取极其珍贵的内核产物 (Image)
       run: |
