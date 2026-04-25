@@ -54,14 +54,18 @@ jobs:
       run: |
         cd ~/workspace
         
-        # 1. 给 Bazel 注入紧箍咒，防止 GitHub Actions 内存溢出 (OOM)
+        # 1. 进入真正的内核工作区
+        cd kernel_platform
+        
+        # 2. 给 Bazel 注入紧箍咒，防止 GitHub Actions 内存溢出 (OOM)
         echo "startup --host_jvm_args=-Xmx3g" > .bazelrc
         echo "build --local_ram_resources=4096" >> .bazelrc
         echo "build --local_cpu_resources=2" >> .bazelrc
         echo "build --worker_max_instances=2" >> .bazelrc
         
-        # 2. 执行编译 (这里是你原本的编译脚本)
-        ./android_kernel_oneplus_sm8750/build_with_bazel.py -t sun
+        # 3. 退回到 workspace 根目录执行一加官方的编译指令
+        cd ~/workspace
+        ./kernel_platform/oplus/build/oplus_build_kernel.sh sun perf
         
     - name: 📦 第四步：暴力提取心脏与模块
       run: |
