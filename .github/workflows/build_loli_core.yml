@@ -54,33 +54,33 @@ jobs:
       run: |
         cd ~/workspace
         
-        # --- 魔法开始：伪造 Git 环境，骗过高通的验证系统 ---
-        echo "修复 Git 状态检查..."
+        echo "清理损坏的 Git 软链接..."
+        find . -name ".git" -type l -delete
+        
+        echo "做戏做全套，重建核心目录的完整 Git 仓库..."
         git config --global user.name "Builder"
         git config --global user.email "build@localhost.com"
         git config --global init.defaultBranch main
         
-        # 在主目录和核心目录初始化假的 git 仓库
-        cd kernel_platform
-        git init && git commit --allow-empty -m "Fake commit" || true
+        # 针对这三个最喜欢用 git 的核心目录，建立真实的本地跟踪
+        for dir in kernel_platform kernel_platform/common kernel_platform/msm-kernel; do
+          if [ -d "$dir" ]; then
+            echo "正在修复 $dir 的 Git 状态..."
+            cd ~/workspace/$dir
+            git init
+            git add .
+            git commit -m "Fake commit with all files" || true
+          fi
+        done
         
-        if [ -d "msm-kernel" ]; then
-          cd msm-kernel
-          git init && git add . || true
-          git commit --allow-empty -m "Fake commit" || true
-          cd ..
-        fi
-        # --- 魔法结束 ---
-        
-        # 注入 Bazel 紧箍咒 (防内存溢出)
+        echo "注入 Bazel 紧箍咒 (防内存溢出)..."
+        cd ~/workspace
         echo "startup --host_jvm_args=-Xmx3g" > .bazelrc
         echo "build --local_resources=memory=4096,cpu=2" >> .bazelrc
         echo "build --worker_max_instances=2" >> .bazelrc
-        # 强制关闭严格的版本状态检查
         echo "build --workspace_status_command=/bin/true" >> .bazelrc
         
-        # 回到 workspace 执行官方编译指令
-        cd ~/workspace
+        echo "再次点火！开始真正的内核编译！"
         ./kernel_platform/oplus/build/oplus_build_kernel.sh sun perf
         
     - name: 🗂️ 第四步：收集编译产物 (打扫战场)
