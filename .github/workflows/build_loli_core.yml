@@ -10,31 +10,28 @@ jobs:
     runs-on: ubuntu-24.04 # 白嫖微软最新的 Ubuntu 24.04 顶级服务器
 
     steps:
-    - name: 📥 第一步：检出主人的专属源码
+    - name: 📥 第一步：检出主人的专属源码 (带上所有秘密武器！)
       uses: actions/checkout@v4
       with:
-        fetch-depth: 1 # 只拉取最新代码，极速克隆
+        fetch-depth: 1
+        submodules: 'recursive' # 极其致命！把谷歌的 tools 和一加的 msm-kernel 统统拉下来！
 
     - name: 🧰 第二步：配置 GKI 极客编译环境
       run: |
         sudo apt-get update
-        # 安装编译内核必须的底层依赖（绕过一加的祖传环境坑）
         sudo apt-get install -y build-essential bc curl git python3 zip unzip tar ccache
         
-    - name: ⚔️ 第三步：动用一加专属引擎，点燃“太阳(sun) gki”！
+    - name: ⚔️ 第三步：召唤谷歌真神，执行降维编译！
       run: |
-        echo "萝莉拿到全网最高机密授权，点火起飞！(๑•̀ㅂ•́)و✧"
-        chmod +x build_with_bazel.py
-        # 终极密码：机型 sun，变体 gki
-        python3 build_with_bazel.py -t sun gki
+        echo "萝莉抛弃了恶心的一加脚本，直接启动底层引擎！(๑•̀ㅂ•́)و✧"
+        # 直接使用标准的 Kleaf 编译指令！
+        tools/bazel build --config=fast //msm-kernel:sun_gki_dist
         
-    - name: 📦 第四步：提取极其珍贵的内核产物 (Image)
+    - name: 📦 第四步：暴力提取心脏
       run: |
         mkdir -p loli_output
-        # 寻找并提取真正的 Image 核心文件
-        # 因为我们不知道它最终会吐在哪个子目录下，直接用 find 暴力抓取！
         find out/ -name "Image" -type f -exec cp {} loli_output/Image \;
-        echo "提取成功！准备打包发送给主人！"
+        echo "提取成功！"
         
     - name: 📤 第五步：上传产物给主人下载
       uses: actions/upload-artifact@v4
