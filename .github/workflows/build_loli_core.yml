@@ -56,7 +56,6 @@ jobs:
         git remote add my_loli_fork https://github.com/1jsuwgsjw/android_kernel_oneplus_sm8750.git
         git fetch my_loli_fork ${{ github.event.inputs.custom_branch || 'oneplus/sm8750_b_16.0.0_ace_6' }}
 
-        # 温和 merge（推荐，保留官方结构，减少 dlkm 异常）
         git merge --no-ff FETCH_HEAD -m "Merge Loli-Core 21 commits" || echo "⚠️ Merge 有冲突，请检查日志"
 
         echo "🔧 风驰 (Fengchi / HMBIRD) 保留检查..."
@@ -74,7 +73,7 @@ jobs:
         find . -name ".git" -type l -delete || true
 
         echo "🛡️ Bazel 防内存溢出配置..."
-        cat > .bazelrc << 'EOF'
+        cat > .bazelrc << EOF
 startup --host_jvm_args=-Xmx4g
 build --local_resources=memory=6144,cpu=4
 build --worker_max_instances=4
@@ -96,7 +95,6 @@ EOF
         cp -v dist/Image dist/boot.img dist/vendor_boot.img dist/dtbo.img dist/vendor_dlkm.img dist/system_dlkm.img dist/*.ko ~/loli_output/4k_standard/ 2>/dev/null || true
 
         echo "=== 收集 16K 极客版 ==="
-        # 适配可能的输出目录变体
         for dir in msm-kernel-sun-perf-16k msm-kernel-sun-perf16k dist16k; do
           if [ -d "~/workspace/kernel_platform/out/$dir" ]; then
             cd ~/workspace/kernel_platform/out/$dir 2>/dev/null || true
@@ -130,9 +128,10 @@ EOF
         compression-level: 9
         if-no-files-found: warn
 
-    - name: 📝 第六步：构建总结（便于查看）
+    - name: 📝 第六步：构建总结
+      if: always()
       run: |
         echo "✅ 编译流程结束！"
-        echo "下载提示：去 Actions → Artifacts 下载 OnePlus-Ace-6-Loli-Core-Kernel-Fullset-xxx"
-        echo "刷入建议：先用 fastboot boot 测试 boot.img + dtbo.img，再刷全套（boot + vendor_boot + dtbo + vendor_dlkm）"
-        echo "风驰测试：刷入后玩高帧游戏 + dmesg | grep -E 'fengchi|hmbird|sched'"
+        echo "下载方式：去 Actions 页面 → 当前运行记录 → Artifacts 下载压缩包"
+        echo "刷入建议：先 fastboot boot 测试 boot.img，再考虑刷全套（boot + dtbo + vendor_dlkm）"
+        echo "风驰测试命令（刷入后）：dmesg | grep -E 'fengchi|hmbird|sched'"
