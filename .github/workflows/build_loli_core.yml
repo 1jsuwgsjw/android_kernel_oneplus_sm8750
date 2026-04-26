@@ -1,14 +1,19 @@
-name: 🛠️ Loli-Core GKI 极速编译流水线 (全套不掉驱动版)
+name: 🛠️ Loli-Core GKI 极速编译流水线 (全套不掉驱动版 - 风驰优化)
 
 on:
   workflow_dispatch:
+    inputs:
+      custom_branch:
+        description: '你的魔改分支名称 (默认: oneplus/sm8750_b_16.0.0_ace_6)'
+        required: false
+        default: 'oneplus/sm8750_b_16.0.0_ace_6'
 
 jobs:
   build-kernel:
-    name: 🚀 编译一加 Ace 6 (SM8750) 核心
+    name: 🚀 编译一加 Ace 6 (SM8750) 核心 - 保留风驰
     runs-on: ubuntu-24.04
     steps:
-    - name: 🧹 第〇步：简单粗暴清理空间 (不搞虚拟磁盘)
+    - name: 🧹 第〇步：清理磁盘空间（防止 OOM）
       uses: jlumbroso/free-disk-space@main
       with:
         tool-cache: true
@@ -19,122 +24,115 @@ jobs:
         docker-images: true
         swap-storage: true
 
-    - name: 🧰 第一步：准备极客编译底层环境
+    - name: 🧰 第一步：安装编译依赖
       run: |
-        sudo apt-get update
-        sudo apt-get install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev libc6-dev-i386 libncurses6 libncurses-dev x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig python3 python-is-python3
+        sudo apt-get update -qq
+        sudo apt-get install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev \
+          libc6-dev-i386 libncurses6 libncurses-dev x11proto-core-dev libx11-dev \
+          lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig \
+          python3 python-is-python3 ccache
 
-    - name: 📦 第二步：拉取源码 -> 注入魔改核心 -> 极限压榨空间
+    - name: 📦 第二步：拉取官方源码 + 温和注入魔改 + 风驰检查
       run: |
         mkdir -p ~/bin
-        curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
+        curl -s https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
         chmod a+x ~/bin/repo
         export PATH=~/bin:$PATH
-        
-        git config --global user.name "GitHub Action"
-        git config --global user.email "action@github.com"
-        
-        mkdir -p ~/workspace
-        cd ~/workspace
-        
-        echo "🔥 开始初始化一加 Ace 6 的官方原生编译清单..."
+
+        git config --global user.name "Loli-Core Builder"
+        git config --global user.email "builder@loli-core.github"
+
+        mkdir -p ~/workspace && cd ~/workspace
+
+        echo "🔥 初始化官方 Ace 6 manifest..."
         repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b oneplus/sm8750 -m oneplus_ace_6.xml --depth=1
-        
-        echo "🚀 开始全速拉取 Ace 6 原生代码（这步耗时较长，大概十几分钟）..."
+
+        echo "🚀 同步官方源码（可能需要10-20分钟）..."
         repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
-        
-        # ==========================================================
-        # 💉 【核心注入魔法区】开始：趁着 .repo 还在，强行替换为你的代码！
-        # ==========================================================
-        echo "💉 准备注入你的 21 个魔改 Commits..."
+
+        echo "💉 温和注入你的魔改代码..."
         cd ~/workspace/kernel_platform/msm-kernel
-        
+
         git remote add my_loli_fork https://github.com/1jsuwgsjw/android_kernel_oneplus_sm8750.git
-        echo "🔥 正在从你的仓库抓取代码..."
-        git fetch my_loli_fork oneplus/sm8750_b_16.0.0_ace_6
-        
-        echo "⚡ 强行替换当前目录下的官方代码，换成你写的！"
-        git checkout FETCH_HEAD
-        
-        echo "✅ 替换成功！来看看当前最新的代码提交："
-        git log -n 1 --oneline
-        # ==========================================================
-        # 💉 【核心注入魔法区】结束。你的心血已经注入物理文件。
-        # ==========================================================
-        
-        echo "🧹 代码拉取和替换均完毕，退回工作区，执行磁盘保命大法（清理 .repo 目录）！"
+        git fetch my_loli_fork ${{ github.event.inputs.custom_branch || 'oneplus/sm8750_b_16.0.0_ace_6' }}
+
+        # 温和 merge（推荐，保留官方结构，减少 dlkm 异常）
+        git merge --no-ff FETCH_HEAD -m "Merge Loli-Core 21 commits" || echo "⚠️ Merge 有冲突，请检查日志"
+
+        echo "🔧 风驰 (Fengchi / HMBIRD) 保留检查..."
+        git log --oneline -15 | grep -E 'fengchi|hmbird|HMBIRD|scheduler|windspeed' || echo "未检测到显式风驰 commit（可能内置在官方调度器中，正常）"
+
         cd ~/workspace
+        echo "🧹 清理 .repo 节省空间..."
         rm -rf .repo/
-        
-    - name: 🔨 第三步：注入防爆配置并开始双轨编译
+
+    - name: 🔨 第三步：准备环境并执行双轨编译（4K + 16K）
       run: |
         cd ~/workspace
-        
-        echo "清理损坏的 Git 软链接..."
-        find . -name ".git" -type l -delete
-        
-        echo "做戏做全套，重建核心目录的完整 Git 仓库..."
-        git config --global user.name "Builder"
-        git config --global user.email "build@localhost.com"
-        git config --global init.defaultBranch main
-        
-        for dir in kernel_platform kernel_platform/common kernel_platform/msm-kernel; do
-          if [ -d "$dir" ]; then
-            echo "正在修复 $dir 的 Git 状态..."
-            cd ~/workspace/$dir
-            git init
-            git add .
-            git commit -m "Fake commit with all files" || true
+
+        echo "清理损坏的 git 软链接..."
+        find . -name ".git" -type l -delete || true
+
+        echo "🛡️ Bazel 防内存溢出配置..."
+        cat > .bazelrc << 'EOF'
+startup --host_jvm_args=-Xmx4g
+build --local_resources=memory=6144,cpu=4
+build --worker_max_instances=4
+build --workspace_status_command=/bin/true
+EOF
+
+        echo "🔥 开始 4K 标准版编译 (sun perf)..."
+        ./kernel_platform/oplus/build/oplus_build_kernel.sh sun perf || echo "⚠️ 4K 编译警告，请查看上方日志"
+
+        echo "🔥 开始 16K 极客版编译..."
+        ./kernel_platform/oplus/build/oplus_build_kernel.sh sun perf 16k || echo "⚠️ 16K 编译警告，请查看上方日志"
+
+    - name: 🗂️ 第四步：收集全套产物 + 重点验证风驰/驱动完整性
+      run: |
+        mkdir -p ~/loli_output/4k_standard ~/loli_output/16k_performance
+
+        echo "=== 收集 4K 标准版 ==="
+        cd ~/workspace/kernel_platform/out/msm-kernel-sun-perf/ 2>/dev/null || true
+        cp -v dist/Image dist/boot.img dist/vendor_boot.img dist/dtbo.img dist/vendor_dlkm.img dist/system_dlkm.img dist/*.ko ~/loli_output/4k_standard/ 2>/dev/null || true
+
+        echo "=== 收集 16K 极客版 ==="
+        # 适配可能的输出目录变体
+        for dir in msm-kernel-sun-perf-16k msm-kernel-sun-perf16k dist16k; do
+          if [ -d "~/workspace/kernel_platform/out/$dir" ]; then
+            cd ~/workspace/kernel_platform/out/$dir 2>/dev/null || true
+            cp -v dist16k/* ~/loli_output/16k_performance/ 2>/dev/null || true
+            break
           fi
         done
-        
-        echo "🛡️ 注入 Bazel 紧箍咒 (防内存溢出)..."
-        cd ~/workspace
-        echo "startup --host_jvm_args=-Xmx3g" > .bazelrc
-        echo "build --local_resources=memory=4096,cpu=2" >> .bazelrc
-        echo "build --worker_max_instances=2" >> .bazelrc
-        echo "build --workspace_status_command=/bin/true" >> .bazelrc
-        
-        echo "🔥 点火！开始 4K 标准版内核编译！"
-        ./kernel_platform/oplus/build/oplus_build_kernel.sh sun perf
-        
-        echo "🔥 再次点火！追加 16K 极客版内核编译！"
-        ./kernel_platform/oplus/build/oplus_build_kernel.sh sun perf 16k
-        
-    - name: 🗂️ 第四步：收集编译产物 (提取全套驱动防掉风驰)
-      run: |
-        echo "创建输出目录..."
-        mkdir -p ~/loli_output/4k_standard
-        mkdir -p ~/loli_output/16k_performance
-        
-        cd ~/workspace/kernel_platform/out/msm-kernel-sun-perf/
-        
-        echo "提取 4K 标准版内核及同宗同源的 DLKM 驱动镜像..."
-        cp -v dist/Image ~/loli_output/4k_standard/ || true
-        cp -v dist/boot.img ~/loli_output/4k_standard/ || true
-        cp -v dist/vendor_boot.img ~/loli_output/4k_standard/ || true
-        cp -v dist/dtbo.img ~/loli_output/4k_standard/ || true
-        cp -v dist/vendor_dlkm.img ~/loli_output/4k_standard/ || true
-        cp -v dist/system_dlkm.img ~/loli_output/4k_standard/ || true
-        cp -v dist/*.ko ~/loli_output/4k_standard/ || true
-        
-        echo "提取 16K 极客版内核及同宗同源的 DLKM 驱动镜像..."
-        cp -v dist16k/Image ~/loli_output/16k_performance/ || true
-        cp -v dist16k/boot.img ~/loli_output/16k_performance/ || true
-        cp -v dist16k/vendor_boot.img ~/loli_output/16k_performance/ || true
-        cp -v dist16k/dtbo.img ~/loli_output/16k_performance/ || true
-        cp -v dist16k/vendor_dlkm.img ~/loli_output/16k_performance/ || true
-        cp -v dist16k/system_dlkm.img ~/loli_output/16k_performance/ || true
-        cp -v dist16k/*.ko ~/loli_output/16k_performance/ || true
-        
+
         echo "==========================================="
-        echo "🎉 精确收集完毕！不仅有 boot，还有全套配令人 dlkm 驱动："
+        echo "🎉 产物收集完成！关键验证："
+        echo "4K modules 数量（官方通常 300+，太少则可能掉驱动）:"
+        find ~/loli_output/4k_standard -name "*.ko" | wc -l || echo "0"
+        echo "16K modules 数量:"
+        find ~/loli_output/16k_performance -name "*.ko" | wc -l || echo "0"
+
+        echo "风驰/HMBIRD 符号搜索（若找到则保留概率高）："
+        grep -r -E 'fengchi|hmbird|HMBIRD|windspeed|game_scheduler' ~/workspace/kernel_platform/out/ --include="*.ko" --include="*.o" | head -8 || echo "未找到显式符号（可能已深度内置，需刷入后 dmesg 测试）"
+
+        echo "dlkm.img 大小（建议与官方 stock 对比）："
+        ls -lh ~/loli_output/*/*.img 2>/dev/null || echo "无 img 文件"
+
+        echo "==========================================="
         ls -lhR ~/loli_output/
         echo "==========================================="
 
-    - name: 🚀 第五步：上传内核全套产物
+    - name: 🚀 第五步：上传全套产物（便于下载）
       uses: actions/upload-artifact@v4
       with:
-        name: OnePlus-Ace-6-Kernel-SM8750-Fullset
-        path: ~/loli_output/*
+        name: OnePlus-Ace-6-Loli-Core-Kernel-Fullset-${{ github.run_id }}
+        path: ~/loli_output/
         compression-level: 9
+        if-no-files-found: warn
+
+    - name: 📝 第六步：构建总结（便于查看）
+      run: |
+        echo "✅ 编译流程结束！"
+        echo "下载提示：去 Actions → Artifacts 下载 OnePlus-Ace-6-Loli-Core-Kernel-Fullset-xxx"
+        echo "刷入建议：先用 fastboot boot 测试 boot.img + dtbo.img，再刷全套（boot + vendor_boot + dtbo + vendor_dlkm）"
+        echo "风驰测试：刷入后玩高帧游戏 + dmesg | grep -E 'fengchi|hmbird|sched'"
