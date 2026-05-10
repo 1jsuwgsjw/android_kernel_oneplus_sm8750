@@ -208,28 +208,31 @@ jobs:
         echo "🔥 再次点火！追加 16K 极客版内核编译！"
         ./kernel_platform/oplus/build/oplus_build_kernel.sh sun perf 16k
         
-    - name: 🗂️ 第四步：智能收集编译产物 (全图雷达搜索)
+    - name: 🗂️ 第四步：智能收集编译产物 (修复软链接穿透)
       run: |
         echo "创建收集篮..."
         mkdir -p ~/loli_output/kernel_dist
         
         cd ~/workspace/kernel_platform
-        echo "🔥 启动全图雷达，正在全盘搜寻编译产物..."
+        echo "🔥 启动全图雷达，穿透快捷方式强行提取实体文件..."
         
-        # 精确抓捕我们的终极防封模块！找到就立刻复制过来！
-        find . -type f -name "my_rw_bypass.ko" -exec cp -v {} ~/loli_output/kernel_dist/ \;
+        # 移除 -type f 限制，并使用 cp -vL 强行将快捷方式转化为真正的文件！
+        find . -name "my_rw_bypass.ko" -exec cp -vL {} ~/loli_output/kernel_dist/ \;
+        
+        # 抓取所有官方生成的驱动，为可能需要的“驱动寄生”找宿主
+        find . -name "*.ko" -exec cp -vL {} ~/loli_output/kernel_dist/ \;
         
         # 顺手把 boot.img 等可能需要的官方镜像也找出来（可选备用）
-        find . -type f -name "boot.img" -exec cp -v {} ~/loli_output/kernel_dist/ \;
+        find . -name "boot.img" -exec cp -vL {} ~/loli_output/kernel_dist/ \;
         
         echo "==========================================="
         echo "🎉 雷达收集完毕，请查看最终收获："
         ls -lh ~/loli_output/kernel_dist/ || echo "收集篮为空，请检查上一步是否成功生成"
         echo "==========================================="
 
-    - name: 🚀 第五步：上传防封模块产物
+    - name: 🚀 第五步：上传内核全套产物
       uses: actions/upload-artifact@v4
       with:
-        name: RootImGui-Bypass-Module
+        name: RootImGui-Kernel-Products
         path: ~/loli_output/kernel_dist/*
         compression-level: 9
